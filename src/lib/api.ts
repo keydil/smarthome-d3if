@@ -3,7 +3,7 @@ import axios from 'axios';
 import { SensorData, SystemStatus, ControlRequest } from '@/types';
 
 // Environment variables untuk deployment
-const ESP32_IP = process.env.NEXT_PUBLIC_ESP32_IP || 'ganti_ip_esp32';
+const ESP32_IP = process.env.NEXT_PUBLIC_ESP32_IP || '192.168.100.43';
 const API_BASE = ESP32_IP.startsWith('http') ? ESP32_IP : `http://${ESP32_IP}`;
 
 // OpenWeatherMap API Configuration
