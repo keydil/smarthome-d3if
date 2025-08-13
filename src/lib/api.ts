@@ -2,19 +2,19 @@
 import axios from 'axios';
 import { SensorData, SystemStatus, ControlRequest } from '@/types';
 
-// Ganti dengan IP ESP32 lu bro
-const ESP32_IP = '192.168.100.43'; // Update sesuai IP ESP32 lu
-const API_BASE = `http://${ESP32_IP}`;
+// Environment variables untuk deployment
+const ESP32_IP = process.env.NEXT_PUBLIC_ESP32_IP || '192.168.100.43';
+const API_BASE = ESP32_IP.startsWith('http') ? ESP32_IP : `http://${ESP32_IP}`;
 
 // OpenWeatherMap API Configuration
-const WEATHER_API_KEY = '47021f14761cffda02cae504dcf17039'; // Dapetin dari https://openweathermap.org/api
+const WEATHER_API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY || 'your_api_key_here';
 const WEATHER_API_BASE = 'https://api.openweathermap.org/data/2.5';
 
-// Lokasi default (bisa diganti sesuai lokasi lo)
+// Lokasi dari environment variables
 const DEFAULT_LOCATION = {
-  lat: -6.2088, // Jakarta coordinates
-  lon: 106.8456,
-  city: 'Jakarta'
+  lat: parseFloat(process.env.NEXT_PUBLIC_LOCATION_LAT || '-6.2088'),
+  lon: parseFloat(process.env.NEXT_PUBLIC_LOCATION_LON || '106.8456'),
+  city: process.env.NEXT_PUBLIC_LOCATION_CITY || 'Jakarta'
 };
 
 const api = axios.create({
@@ -77,7 +77,7 @@ export class SmartHomeAPI {
     } catch (error) {
       console.error('Weather API error:', error);
       
-      // Fallback ke data dummy yang masuk akal
+      // Fallback ke data dummy yang masuk akal untuk Indonesia
       const fallbackData = {
         temperature: 28.5, // Suhu rata-rata Indonesia
         humidity: 65.0     // Kelembaban rata-rata
@@ -122,7 +122,26 @@ export class SmartHomeAPI {
       };
     } catch (error) {
       console.error('Error fetching sensors:', error);
-      throw error;
+      
+      // Jika ESP32 ga bisa diakses, pake weather API untuk suhu/kelembaban
+      try {
+        const weatherData = await this.getWeatherData();
+        return {
+          temperature: weatherData.temperature,
+          humidity: weatherData.humidity,
+          lightLevel: 0,
+          distance: 0,
+          motionDetected: false,
+          isDark: false,
+          joystickPressed: false,
+          joyX: 0,
+          joyY: 0,
+          timestamp: Math.floor(Date.now() / 1000),
+          isWeatherAPI: true
+        };
+      } catch (weatherError) {
+        throw error; // Throw original error jika weather API juga gagal
+      }
     }
   }
 
