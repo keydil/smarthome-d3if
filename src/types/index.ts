@@ -24,6 +24,11 @@ export interface SystemStatus {
   };
   rgb: {
     mode: string;
+    manualMode: boolean;
+    manualTimeLeft: number;
+    //nambahin fitur aneh (inget manualMode)
+    //manualMode: boolean;
+    //manualTimeLeft: number;
   };
   buzzer: {
     active: boolean;

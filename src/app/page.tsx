@@ -47,7 +47,7 @@ export default function HomePage() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     servo: { open: false, moving: false },
     led: { builtin: false },
-    rgb: { mode: "OFF" },
+    rgb: { mode: 'OFF', manualMode: false, manualTimeLeft: 0 }, //nambahin fitur aneh (inget manualMode)
     buzzer: { active: false },
     system: { ready: false, uptime: 0 },
     wifi: { status: "Disconnected", ip: "", rssi: 0 },
