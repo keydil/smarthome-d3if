@@ -91,7 +91,7 @@ export class SmartHomeAPI {
       if (heartbeatSnapshot.exists()) {
         // Gunakan heartbeat timestamp (lebih akurat)
         lastTimestamp = heartbeatSnapshot.val();
-        console.log('💓 Using heartbeat timestamp:', lastTimestamp);
+        // console.log('💓 Using heartbeat timestamp:', lastTimestamp);
       } else if (sensorsSnapshot.exists() && sensorsSnapshot.val().timestamp) {
         // Fallback ke sensor timestamp
         lastTimestamp = sensorsSnapshot.val().timestamp;
@@ -113,13 +113,13 @@ export class SmartHomeAPI {
       // ESP32 dianggap online jika timestamp-nya tidak lebih dari CONNECTION_TIMEOUT
       const isOnline = timeDifference < this.CONNECTION_TIMEOUT;
       
-      console.log(`🔗 ESP32 Status Check:`, {
-        lastTimestamp,
-        now,
-        timeDifference,
-        isOnline,
-        thresholdSeconds: this.CONNECTION_TIMEOUT / 1000
-      });
+      // console.log(`🔗 ESP32 Status Check:`, {
+      //   lastTimestamp,
+      //   now,
+      //   timeDifference,
+      //   isOnline,
+      //   thresholdSeconds: this.CONNECTION_TIMEOUT / 1000
+      // });
       
       return {
         isOnline,
@@ -175,7 +175,7 @@ export class SmartHomeAPI {
 
         // Fallback to weather API if DHT11 invalid
         if (!isDHTValid) {
-          console.log('🌡️ DHT11 invalid, using weather API...');
+          // console.log('🌡️ DHT11 invalid, using weather API...');
           const weatherData = await this.getWeatherData();
           temperature = weatherData.temperature;
           humidity = weatherData.humidity;
