@@ -15,7 +15,8 @@ import {
   RefreshCw,
   AlertTriangle,
   Cloud,
-  Cpu,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 
 import { BackgroundAnimation } from "@/components/animations/BackgroundAnimation";
@@ -25,12 +26,20 @@ import { StatusIndicator } from "@/components/dashboard/StatusIndicator";
 import { RGBController } from "@/components/dashboard/RGBController";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { SmartHomeAPI } from "@/lib/api";
-import type { SensorData, SystemStatus } from "@/types";
+import type { 
+  SensorDataWithConnection, 
+  SystemStatusWithConnection, 
+  ConnectionInfo,
+  APISensorResponse,
+  APISystemResponse
+} from "@/types";
 
 export default function HomePage() {
-  const [sensorData, setSensorData] = useState<SensorData>({
+  // Updated state types to match the new API responses
+  const [sensorData, setSensorData] = useState<SensorDataWithConnection>({
     temperature: 0,
     humidity: 0,
     lightLevel: 0,
@@ -42,58 +51,176 @@ export default function HomePage() {
     joyY: 0,
     timestamp: 0,
     isWeatherAPI: false,
+    connectionStatus: {
+      isOnline: false,
+      lastSeen: 0,
+      timeDifference: 0,
+      status: 'unknown',
+      lastSeenFormatted: 'Never',
+      timeOffline: 0
+    }
   });
 
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
+  const [systemStatus, setSystemStatus] = useState<SystemStatusWithConnection>({
     servo: { open: false, moving: false },
     led: { builtin: false },
-    rgb: { mode: 'OFF', manualMode: false, manualTimeLeft: 0 }, //nambahin fitur aneh (inget manualMode)
+    rgb: { mode: 'OFF', manualMode: false, manualTimeLeft: 0 },
     buzzer: { active: false },
     system: { ready: false, uptime: 0 },
     wifi: { status: "Disconnected", ip: "", rssi: 0 },
     timestamp: 0,
+    connectionStatus: {
+      isOnline: false,
+      lastSeen: 0,
+      timeDifference: 0,
+      status: 'unknown',
+      lastSeenFormatted: 'Never',
+      timeOffline: 0
+    }
   });
 
   const [isMounted, setIsMounted] = useState(false);
+  
+  // Simplified connectionInfo - derived from sensorData and systemStatus
+  const connectionInfo: ConnectionInfo = sensorData.connectionStatus;
 
-  const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState({
     led: false,
     servo: false,
     rgb: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [controlMessages, setControlMessages] = useState<string[]>([]);
 
-  // Data fetching
+  // Add control message helper
+  const addControlMessage = (message: string, isError = false) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const fullMessage = `${timestamp}: ${message}`;
+    
+    setControlMessages(prev => [fullMessage, ...prev.slice(0, 4)]); // Keep last 5 messages
+    
+    if (isError) {
+      setError(message);
+    }
+  };
+
+  // Enhanced data fetching with connection status
   const fetchData = useCallback(async () => {
     try {
-      const [sensors, status] = await Promise.all([
+      const [sensors, status]: [APISensorResponse, APISystemResponse] = await Promise.all([
         SmartHomeAPI.getSensors(),
         SmartHomeAPI.getStatus(),
       ]);
 
-      setSensorData(sensors);
-      setSystemStatus(status);
-      setIsConnected(true);
+      // Transform sensors data to match SensorDataWithConnection type
+      const sensorConnectionStatus: ConnectionInfo = {
+        isOnline: sensors.connectionStatus?.isOnline || false,
+        lastSeen: sensors.connectionStatus?.lastSeen || 0,
+        timeDifference: sensors.connectionStatus?.timeDifference || 0,
+        status: (sensors.connectionStatus?.status as ConnectionInfo['status']) || 'unknown',
+        lastSeenFormatted: sensors.connectionStatus?.lastSeenFormatted || 'Never',
+        timeOffline: sensors.connectionStatus?.timeOffline || 0
+      };
+
+      const transformedSensors: SensorDataWithConnection = {
+        ...sensors,
+        connectionStatus: sensorConnectionStatus
+      };
+
+      // Transform status data to match SystemStatusWithConnection type
+      const statusConnectionStatus: ConnectionInfo = {
+        isOnline: status.connectionStatus?.isOnline || false,
+        lastSeen: status.connectionStatus?.lastSeen || 0,
+        timeDifference: status.connectionStatus?.timeDifference || 0,
+        status: (status.connectionStatus?.status as ConnectionInfo['status']) || 'unknown',
+        lastSeenFormatted: status.connectionStatus?.lastSeenFormatted || 'Never',
+        timeOffline: status.connectionStatus?.timeOffline || 0
+      };
+
+      const transformedStatus: SystemStatusWithConnection = {
+        ...status,
+        connectionStatus: statusConnectionStatus
+      };
+
+      setSensorData(transformedSensors);
+      setSystemStatus(transformedStatus);
+      
       setError(null);
     } catch (err) {
       console.error("Failed to fetch data:", err);
-      setIsConnected(false);
-      setError("Failed to connect to ESP32");
+      setError("Failed to connect to Firebase");
+      
+      // Update connection status in case of error
+      const errorConnectionInfo: ConnectionInfo = {
+        isOnline: false,
+        lastSeen: 0,
+        timeDifference: Number.POSITIVE_INFINITY,
+        status: 'error',
+        lastSeenFormatted: 'Never',
+        timeOffline: 0
+      };
+
+      setSensorData(prev => ({
+        ...prev,
+        connectionStatus: errorConnectionInfo
+      }));
+      
+      setSystemStatus(prev => ({
+        ...prev,
+        connectionStatus: errorConnectionInfo
+      }));
     }
   }, []);
 
-  // Connection check
-  const checkConnection = useCallback(async () => {
+  // Enhanced connection check using the new API method
+  const checkDetailedConnection = useCallback(async () => {
     try {
-      const connected = await SmartHomeAPI.checkConnection();
-      setIsConnected(connected);
-      if (!connected) {
-        setError("ESP32 not reachable");
+      const connInfo = await SmartHomeAPI.getConnectionInfo();
+      
+      // Ensure connInfo has all required properties
+      const fullConnectionInfo: ConnectionInfo = {
+        isOnline: connInfo.isOnline || false,
+        lastSeen: connInfo.lastSeen || 0,
+        timeDifference: connInfo.timeDifference || 0,
+        status: (connInfo.status as ConnectionInfo['status']) || 'unknown',
+        lastSeenFormatted: connInfo.lastSeenFormatted || 'Never',
+        timeOffline: connInfo.timeOffline || 0
+      };
+      
+      // Update both sensor and system connection info
+      setSensorData(prev => ({
+        ...prev,
+        connectionStatus: fullConnectionInfo
+      }));
+      
+      setSystemStatus(prev => ({
+        ...prev,
+        connectionStatus: fullConnectionInfo
+      }));
+      
+      if (!connInfo.isOnline) {
+        setError(`ESP32 offline for ${connInfo.timeOffline}s`);
       }
     } catch (err) {
-      setIsConnected(false);
-      setError("Connection check failed");
+      console.error("Connection check failed:", err);
+      const errorConnectionInfo: ConnectionInfo = {
+        isOnline: false,
+        lastSeen: 0,
+        timeDifference: Number.POSITIVE_INFINITY,
+        status: 'error',
+        lastSeenFormatted: 'Never',
+        timeOffline: 0
+      };
+
+      setSensorData(prev => ({
+        ...prev,
+        connectionStatus: errorConnectionInfo
+      }));
+      
+      setSystemStatus(prev => ({
+        ...prev,
+        connectionStatus: errorConnectionInfo
+      }));
     }
   }, []);
 
@@ -102,20 +229,28 @@ export default function HomePage() {
     try {
       await SmartHomeAPI.refreshWeatherData();
       await fetchData();
+      addControlMessage("Weather data refreshed");
     } catch (err) {
       console.error("Failed to refresh weather data:", err);
+      addControlMessage("Failed to refresh weather data", true);
     }
   };
 
-  // Control functions
+  // Enhanced control functions with better error handling
   const handleLEDToggle = async () => {
     setIsLoading((prev) => ({ ...prev, led: true }));
     try {
-      await SmartHomeAPI.controlLED(!systemStatus.led.builtin);
-      await fetchData(); // Refresh data
+      const result = await SmartHomeAPI.controlLED(!systemStatus.led.builtin);
+      
+      if (result.success) {
+        addControlMessage(result.message);
+        await fetchData(); // Refresh data
+      } else {
+        addControlMessage(result.message, true);
+      }
     } catch (err) {
       console.error("LED control failed:", err);
-      setError("Failed to control LED");
+      addControlMessage("LED control failed", true);
     } finally {
       setIsLoading((prev) => ({ ...prev, led: false }));
     }
@@ -125,11 +260,17 @@ export default function HomePage() {
     setIsLoading((prev) => ({ ...prev, servo: true }));
     try {
       const newAngle = systemStatus.servo.open ? 90 : 0;
-      await SmartHomeAPI.controlServo(newAngle);
-      await fetchData(); // Refresh data
+      const result = await SmartHomeAPI.controlServo(newAngle);
+      
+      if (result.success) {
+        addControlMessage(result.message);
+        await fetchData(); // Refresh data
+      } else {
+        addControlMessage(result.message, true);
+      }
     } catch (err) {
       console.error("Servo control failed:", err);
-      setError("Failed to control servo");
+      addControlMessage("Servo control failed", true);
     } finally {
       setIsLoading((prev) => ({ ...prev, servo: false }));
     }
@@ -138,11 +279,17 @@ export default function HomePage() {
   const handleRGBModeChange = async (mode: string) => {
     setIsLoading((prev) => ({ ...prev, rgb: true }));
     try {
-      await SmartHomeAPI.controlRGB(mode);
-      await fetchData(); // Refresh data
+      const result = await SmartHomeAPI.controlRGB(mode);
+      
+      if (result.success) {
+        addControlMessage(result.message);
+        await fetchData(); // Refresh data
+      } else {
+        addControlMessage(result.message, true);
+      }
     } catch (err) {
       console.error("RGB control failed:", err);
-      setError("Failed to control RGB");
+      addControlMessage("RGB control failed", true);
     } finally {
       setIsLoading((prev) => ({ ...prev, rgb: false }));
     }
@@ -150,19 +297,19 @@ export default function HomePage() {
 
   // Effects
   useEffect(() => {
-    checkConnection();
+    checkDetailedConnection();
     fetchData();
 
     const interval = setInterval(() => {
-      if (isConnected) {
+      if (connectionInfo.isOnline) {
         fetchData();
       } else {
-        checkConnection();
+        checkDetailedConnection();
       }
-    }, 2000); // Update every 2 seconds
+    }, 3000); // Check every 3 seconds
 
     return () => clearInterval(interval);
-  }, [checkConnection, fetchData, isConnected]);
+  }, [checkDetailedConnection, fetchData, connectionInfo.isOnline]);
 
   // Clear errors after 5 seconds
   useEffect(() => {
@@ -175,6 +322,32 @@ export default function HomePage() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Connection status badge component
+  const getConnectionBadge = () => {
+    if (connectionInfo.status === 'online') {
+      return (
+        <Badge variant="default" className="flex items-center space-x-1 px-3 py-1 bg-green-500 text-white">
+          <Wifi className="h-3 w-3" />
+          <span>Online</span>
+        </Badge>
+      );
+    } else if (connectionInfo.status === 'offline') {
+      return (
+        <Badge variant="destructive" className="flex items-center space-x-1 px-3 py-1">
+          <WifiOff className="h-3 w-3" />
+          <span>Offline {connectionInfo.timeOffline}s</span>
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="secondary" className="flex items-center space-x-1 px-3 py-1">
+          <AlertCircle className="h-3 w-3" />
+          <span>Unknown</span>
+        </Badge>
+      );
+    }
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -211,18 +384,18 @@ export default function HomePage() {
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
               >
-                <Badge
-                  variant={isConnected ? "success" : "destructive"}
-                  className="flex items-center space-x-1 px-3 py-1"
-                >
-                  {isConnected ? (
-                    <Wifi className="h-3 w-3" />
-                  ) : (
-                    <WifiOff className="h-3 w-3" />
-                  )}
-                  <span>{isConnected ? "Online" : "Offline"}</span>
-                </Badge>
+                {getConnectionBadge()}
               </motion.div>
+
+              {/* Last seen indicator */}
+              {connectionInfo.lastSeen > 0 && (
+                <Badge variant="outline" className="flex items-center space-x-1 px-3 py-1">
+                  <Clock className="h-3 w-3" />
+                  <span className="text-xs">
+                    {connectionInfo.status === 'online' ? 'Active' : `Last: ${connectionInfo.lastSeenFormatted}`}
+                  </span>
+                </Badge>
+              )}
 
               {/* Weather API indicator */}
               {sensorData.isWeatherAPI && (
@@ -277,17 +450,59 @@ export default function HomePage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="relative z-10 px-4 sm:px-6"
+            className="relative z-10 px-4 sm:px-6 mb-4"
           >
             <div className="max-w-7xl mx-auto">
-              <div className="bg-red-100/80 backdrop-blur-sm border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2">
+              <Alert className="bg-red-100/80 backdrop-blur-sm border border-red-200">
                 <AlertTriangle className="h-5 w-5" />
-                <span>{error}</span>
-              </div>
+                <AlertDescription className="text-red-700">
+                  {error}
+                </AlertDescription>
+              </Alert>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Connection Status Info */}
+      {connectionInfo.status === 'offline' && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 px-4 sm:px-6 mb-4"
+        >
+          <div className="max-w-7xl mx-auto">
+            <Alert className="bg-yellow-100/80 backdrop-blur-sm border border-yellow-200">
+              <WifiOff className="h-5 w-5" />
+              <AlertDescription className="text-yellow-700">
+                ESP32 terputus sejak {connectionInfo.timeOffline} detik yang lalu. 
+                Terakhir terlihat: {connectionInfo.lastSeenFormatted}. 
+                Menggunakan data Weather API sebagai fallback.
+              </AlertDescription>
+            </Alert>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Control Messages */}
+      {controlMessages.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 px-4 sm:px-6 mb-4"
+        >
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-blue-100/80 backdrop-blur-sm border border-blue-200 rounded-lg p-3">
+              <p className="text-blue-700 text-sm font-medium mb-2">Recent Commands:</p>
+              <div className="space-y-1">
+                {controlMessages.slice(0, 3).map((msg, idx) => (
+                  <p key={`msg-${idx}-${msg.substring(0, 10)}`} className="text-blue-600 text-xs">{msg}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Main Content */}
       <main className="relative z-10 p-4 sm:p-6">
@@ -301,6 +516,11 @@ export default function HomePage() {
             <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
               <Activity className="mr-2 h-6 w-6" />
               Sensor Monitoring
+              {connectionInfo.status === 'offline' && (
+                <Badge variant="destructive" className="ml-2 text-xs">
+                  OFFLINE DATA
+                </Badge>
+              )}
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -318,7 +538,13 @@ export default function HomePage() {
                     ? "warning"
                     : "normal"
                 }
-                subtitle={sensorData.isWeatherAPI ? "Weather API" : "DHT11 Sensor"}
+                subtitle={
+                  sensorData.isWeatherAPI 
+                    ? "Weather API" 
+                    : connectionInfo.status === 'offline' 
+                      ? "DHT11 (Offline)" 
+                      : "DHT11 Sensor"
+                }
               />
 
               <SensorCard
@@ -336,30 +562,64 @@ export default function HomePage() {
                     ? "warning"
                     : "normal"
                 }
-                subtitle={sensorData.isWeatherAPI ? "Weather API" : "DHT11 Sensor"}
+                subtitle={
+                  sensorData.isWeatherAPI 
+                    ? "Weather API" 
+                    : connectionInfo.status === 'offline' 
+                      ? "DHT11 (Offline)" 
+                      : "DHT11 Sensor"
+                }
               />
 
               <SensorCard
                 title="Tingkat Cahaya"
-                value={sensorData.lightLevel}
+                value={connectionInfo.status === 'offline' ? "--" : sensorData.lightLevel}
                 icon={<Eye className="h-5 w-5" />}
-                status={sensorData.isDark ? "active" : "normal"}
+                status={
+                  connectionInfo.status === 'offline' 
+                    ? "warning" 
+                    : sensorData.isDark 
+                      ? "active" 
+                      : "normal"
+                }
                 subtitle={
-                  sensorData.isDark ? "Lingkungan Gelap" : "Lingkungan Terang"
+                  connectionInfo.status === 'offline' 
+                    ? "LDR (Offline)" 
+                    : sensorData.isDark 
+                      ? "Lingkungan Gelap" 
+                      : "Lingkungan Terang"
                 }
               />
 
               <SensorCard
                 title="Jarak Terukur"
-                value={sensorData.distance > 0 ? sensorData.distance : "--"}
-                unit={sensorData.distance > 0 ? " cm" : ""}
+                value={
+                  connectionInfo.status === 'offline' 
+                    ? "--" 
+                    : sensorData.distance > 0 
+                      ? sensorData.distance 
+                      : "--"
+                }
+                unit={
+                  connectionInfo.status === 'offline' 
+                    ? "" 
+                    : sensorData.distance > 0 
+                      ? " cm" 
+                      : ""
+                }
                 icon={<Ruler className="h-5 w-5" />}
                 status={
-                  sensorData.distance > 0 && sensorData.distance < 10
-                    ? "warning"
-                    : "normal"
+                  connectionInfo.status === 'offline' 
+                    ? "warning" 
+                    : sensorData.distance > 0 && sensorData.distance < 10
+                      ? "warning"
+                      : "normal"
                 }
-                subtitle="HC-SR04 Ultrasonic"
+                subtitle={
+                  connectionInfo.status === 'offline' 
+                    ? "HC-SR04 (Offline)" 
+                    : "HC-SR04 Ultrasonic"
+                }
               />
             </div>
           </motion.section>
@@ -369,22 +629,54 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="grid grid-cols-1 sm:grid-2 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-6"
           >
             <SensorCard
               title="Deteksi Gerakan"
-              value={sensorData.motionDetected ? "GERAKAN TERDETEKSI" : "TIDAK ADA GERAKAN"}
+              value={
+                connectionInfo.status === 'offline' 
+                  ? "OFFLINE" 
+                  : sensorData.motionDetected 
+                    ? "GERAKAN TERDETEKSI" 
+                    : "TIDAK ADA GERAKAN"
+              }
               icon={<Zap className="h-5 w-5" />}
-              status={sensorData.motionDetected ? "active" : "normal"}
-              subtitle="PIR Sensor"
+              status={
+                connectionInfo.status === 'offline' 
+                  ? "warning" 
+                  : sensorData.motionDetected 
+                    ? "active" 
+                    : "normal"
+              }
+              subtitle={
+                connectionInfo.status === 'offline' 
+                  ? "PIR Sensor (Offline)" 
+                  : "PIR Sensor"
+              }
             />
 
             <SensorCard
               title="Joystick"
-              value={sensorData.joystickPressed ? "DITEKAN" : "TIDAK DITEKAN"}
+              value={
+                connectionInfo.status === 'offline' 
+                  ? "OFFLINE" 
+                  : sensorData.joystickPressed 
+                    ? "DITEKAN" 
+                    : "TIDAK DITEKAN"
+              }
               icon={<GamepadIcon className="h-5 w-5" />}
-              status={sensorData.joystickPressed ? "active" : "normal"}
-              subtitle={`X: ${sensorData.joyX} Y: ${sensorData.joyY}`}
+              status={
+                connectionInfo.status === 'offline' 
+                  ? "warning" 
+                  : sensorData.joystickPressed 
+                    ? "active" 
+                    : "normal"
+              }
+              subtitle={
+                connectionInfo.status === 'offline' 
+                  ? "Joystick (Offline)" 
+                  : `X: ${sensorData.joyX} Y: ${sensorData.joyY}`
+              }
             />
           </motion.section>
 
@@ -398,7 +690,8 @@ export default function HomePage() {
             <div className="lg:col-span-1">
               <StatusIndicator
                 status={systemStatus}
-                isConnected={isConnected}
+                isConnected={connectionInfo.isOnline}
+                connectionInfo={connectionInfo}
               />
             </div>
 
@@ -408,6 +701,7 @@ export default function HomePage() {
                 onLEDToggle={handleLEDToggle}
                 onServoToggle={handleServoToggle}
                 isLoading={{ led: isLoading.led, servo: isLoading.servo }}
+                isConnected={connectionInfo.isOnline}
               />
             </div>
 
@@ -440,19 +734,29 @@ export default function HomePage() {
                   : "Loading..."}
               </p>
               <div className="flex items-center justify-center space-x-4 mt-4 text-sm text-slate-500">
-                <span>📡 WiFi: {systemStatus.wifi.status}</span>
+                <span className={connectionInfo.isOnline ? "text-green-600" : "text-red-600"}>
+                  📡 ESP32: {connectionInfo.status.toUpperCase()}
+                </span>
+                <span>📶 WiFi: {systemStatus.wifi.status}</span>
                 <span>
                   ⏱️ Uptime:{" "}
                   {systemStatus.system.uptime
-                    ? Math.floor(systemStatus.system.uptime)
+                    ? Math.floor(systemStatus.system.uptime / 1000)
                     : 0}
                   s
                 </span>
-                <span>🔗 {systemStatus.wifi.ip}</span>
+                {systemStatus.wifi.ip && (
+                  <span>🔗 {systemStatus.wifi.ip}</span>
+                )}
                 {sensorData.isWeatherAPI && (
                   <span className="text-blue-600">☁️ Weather API Active</span>
                 )}
               </div>
+              {connectionInfo.status === 'offline' && connectionInfo.timeOffline > 0 && (
+                <div className="mt-2 text-xs text-red-500">
+                  ⚠️ ESP32 offline for {connectionInfo.timeOffline} seconds
+                </div>
+              )}
             </div>
           </motion.footer>
         </div>

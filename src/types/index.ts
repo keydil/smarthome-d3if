@@ -10,7 +10,7 @@ export interface SensorData {
   joyX: number;
   joyY: number;
   timestamp: number;
-  // Tambahin flag buat nandain kalo data dari weather API
+  // Flag untuk menandai data dari weather API
   isWeatherAPI?: boolean;
 }
 
@@ -26,9 +26,6 @@ export interface SystemStatus {
     mode: string;
     manualMode: boolean;
     manualTimeLeft: number;
-    //nambahin fitur aneh (inget manualMode)
-    //manualMode: boolean;
-    //manualTimeLeft: number;
   };
   buzzer: {
     active: boolean;
@@ -50,9 +47,47 @@ export interface ControlRequest {
   value: boolean | number | string;
 }
 
-// Tambahin interface buat weather data
+// Interface untuk weather data
 export interface WeatherData {
   temperature: number;
   humidity: number;
   source: 'dht11' | 'weather_api';
+}
+
+// NEW: Interface untuk connection info
+export interface ConnectionInfo {
+  isOnline: boolean;
+  lastSeen: number;
+  timeDifference: number;
+  status: 'online' | 'offline' | 'unknown' | 'error';
+  lastSeenFormatted: string;
+  timeOffline: number;
+}
+
+// API response types - what actually comes from the API
+export interface APIConnectionStatus {
+  isOnline: boolean;
+  lastSeen: number;
+  status: string;
+  timeDifference?: number;
+  lastSeenFormatted?: string;
+  timeOffline?: number;
+}
+
+// Interface untuk API response dengan connection status
+export interface SensorDataWithConnection extends SensorData {
+  connectionStatus: ConnectionInfo;
+}
+
+export interface SystemStatusWithConnection extends SystemStatus {
+  connectionStatus: ConnectionInfo;
+}
+
+// What the API actually returns
+export interface APISensorResponse extends SensorData {
+  connectionStatus: APIConnectionStatus;
+}
+
+export interface APISystemResponse extends SystemStatus {
+  connectionStatus: APIConnectionStatus;
 }

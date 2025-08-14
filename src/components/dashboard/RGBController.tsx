@@ -5,28 +5,75 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Palette, Circle } from 'lucide-react';
+import { 
+  Palette, 
+  Rainbow,
+  Zap,
+  Power,
+  Loader2,
+  WifiOff,
+  AlertTriangle
+} from 'lucide-react';
 
 interface RGBControllerProps {
   currentMode: string;
-  onModeChange: (mode: string) => void;
+  onModeChange: (mode: string) => Promise<void>;
   isLoading?: boolean;
+  isConnected?: boolean; // NEW: Connection status
 }
-
-const rgbModes = [
-  { value: 'off', label: 'OFF', color: 'bg-gray-400', textColor: 'text-gray-600' },
-  { value: 'red', label: 'RED', color: 'bg-red-500', textColor: 'text-red-600' },
-  { value: 'green', label: 'GREEN', color: 'bg-green-500', textColor: 'text-green-600' },
-  { value: 'blue', label: 'BLUE', color: 'bg-blue-500', textColor: 'text-blue-600' },
-  { value: 'rainbow', label: 'RAINBOW', color: 'bg-gradient-to-r from-red-500 via-green-500 to-blue-500', textColor: 'text-purple-600' },
-];
 
 export const RGBController: React.FC<RGBControllerProps> = ({
   currentMode,
   onModeChange,
-  isLoading = false
+  isLoading = false,
+  isConnected = true // Default to true for backward compatibility
 }) => {
-  const currentModeData = rgbModes.find(mode => mode.value === currentMode.toLowerCase()) || rgbModes[0];
+  const rgbModes = [
+    { 
+      name: 'OFF', 
+      label: 'Off', 
+      icon: Power, 
+      color: 'bg-gray-500',
+      description: 'Turn off RGB LED'
+    },
+    { 
+      name: 'RED', 
+      label: 'Red', 
+      icon: Zap, 
+      color: 'bg-red-500',
+      description: 'Solid red color'
+    },
+    { 
+      name: 'GREEN', 
+      label: 'Green', 
+      icon: Zap, 
+      color: 'bg-green-500',
+      description: 'Solid green color'
+    },
+    { 
+      name: 'BLUE', 
+      label: 'Blue', 
+      icon: Zap, 
+      color: 'bg-blue-500',
+      description: 'Solid blue color'
+    },
+    { 
+      name: 'RAINBOW', 
+      label: 'Rainbow', 
+      icon: Rainbow, 
+      color: 'bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500',
+      description: 'Cycling rainbow effect'
+    },
+    { 
+      name: 'BREATHING', 
+      label: 'Breathing', 
+      icon: Palette, 
+      color: 'bg-gradient-to-r from-purple-400 to-pink-400',
+      description: 'Soft breathing effect'
+    }
+  ];
+
+  const isControlsDisabled = !isConnected;
 
   return (
     <Card className="bg-white/60 backdrop-blur-md border-0 hover:shadow-xl transition-all duration-300">
@@ -34,79 +81,150 @@ export const RGBController: React.FC<RGBControllerProps> = ({
         <CardTitle className="flex items-center space-x-2 text-slate-800">
           <Palette className="h-5 w-5" />
           <span>RGB Controller</span>
-          <Badge variant="gradient" className="ml-auto">
-            {currentModeData.label}
-          </Badge>
+          <div className="ml-auto flex items-center space-x-2">
+            {!isConnected && (
+              <Badge variant="destructive" className="flex items-center space-x-1">
+                <WifiOff className="h-3 w-3" />
+                <span>OFFLINE</span>
+              </Badge>
+            )}
+            <Badge 
+              variant={
+                !isConnected ? 'secondary' :
+                currentMode === 'OFF' ? 'secondary' : 'success'
+              }
+              className="flex items-center space-x-1"
+            >
+              <div className={`w-2 h-2 rounded-full ${
+                !isConnected ? 'bg-gray-400' :
+                currentMode === 'OFF' ? 'bg-gray-400' : 'bg-green-400 animate-pulse'
+              }`} />
+              <span>{!isConnected ? 'OFFLINE' : currentMode}</span>
+            </Badge>
+          </div>
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
+        {/* Offline Warning */}
+        {!isConnected && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start space-x-2">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">ESP32 Offline</p>
+              <p className="text-xs text-yellow-600 mt-1">
+                RGB controls are disabled until ESP32 reconnects.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Current Mode Display */}
-        <div className="flex items-center justify-center space-x-4 p-4 bg-slate-50/80 rounded-lg">
-          <motion.div
-            className={`w-12 h-12 rounded-full ${currentModeData.color} shadow-lg`}
-            animate={{ 
-              scale: currentMode.toLowerCase() === 'rainbow' ? [1, 1.1, 1] : 1,
-              rotate: currentMode.toLowerCase() === 'rainbow' ? 360 : 0
-            }}
-            transition={{ 
-              duration: currentMode.toLowerCase() === 'rainbow' ? 2 : 0.3,
-              repeat: currentMode.toLowerCase() === 'rainbow' ? Infinity : 0
-            }}
-          />
-          <div>
-            <p className="text-sm font-medium text-slate-600">Mode Saat Ini</p>
-            <p className={`text-lg font-bold ${currentModeData.textColor}`}>
-              {currentModeData.label}
+        <div className="p-4 bg-slate-50/80 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-slate-700">Current Mode</span>
+            <Badge variant={
+              !isConnected ? 'secondary' :
+              currentMode === 'OFF' ? 'secondary' : 'success'
+            }>
+              {!isConnected ? 'OFFLINE' : currentMode}
+            </Badge>
+          </div>
+          
+          {isConnected && currentMode !== 'OFF' && (
+            <motion.div
+              className={`h-3 rounded-full ${
+                rgbModes.find(mode => mode.name === currentMode)?.color || 'bg-gray-300'
+              }`}
+              animate={{ 
+                opacity: currentMode === 'BREATHING' ? [0.3, 1, 0.3] : 1,
+                scale: currentMode === 'RAINBOW' ? [1, 1.05, 1] : 1
+              }}
+              transition={{ 
+                duration: currentMode === 'BREATHING' ? 2 : 1,
+                repeat: currentMode === 'RAINBOW' || currentMode === 'BREATHING' 
+                  ? Number.POSITIVE_INFINITY : 0 
+              }}
+            />
+          )}
+        </div>
+
+        {/* Mode Buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          {rgbModes.map((mode) => {
+            const Icon = mode.icon;
+            const isActive = currentMode === mode.name;
+            
+            return (
+              <motion.div key={mode.name} whileTap={!isControlsDisabled ? { scale: 0.95 } : {}}>
+                <Button
+                  variant={
+                    isControlsDisabled ? "secondary" :
+                    isActive ? "default" : "outline"
+                  }
+                  size="sm"
+                  onClick={() => !isControlsDisabled && onModeChange(mode.name)}
+                  disabled={isControlsDisabled || isLoading}
+                  className={`w-full h-auto p-3 flex flex-col items-center space-y-2 relative overflow-hidden ${
+                    isActive && !isControlsDisabled ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                >
+                  {isLoading && isActive ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : isControlsDisabled ? (
+                    <WifiOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Icon className="h-5 w-5" />
+                  )}
+                  
+                  <div className="text-center">
+                    <p className="text-xs font-medium">{mode.label}</p>
+                    <p className="text-[10px] text-muted-foreground opacity-70">
+                      {isControlsDisabled ? 'Offline' : mode.description}
+                    </p>
+                  </div>
+
+                  {/* Color preview bar */}
+                  {!isControlsDisabled && mode.name !== 'OFF' && (
+                    <div className={`absolute bottom-0 left-0 right-0 h-1 ${mode.color} ${
+                      isActive ? 'opacity-100' : 'opacity-50'
+                    }`} />
+                  )}
+
+                  {/* Active indicator animation */}
+                  {isActive && !isControlsDisabled && mode.name !== 'OFF' && (
+                    <motion.div
+                      className="absolute inset-0 border-2 border-blue-500 rounded-md"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+                    />
+                  )}
+                </Button>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Manual Mode Info (if applicable) */}
+        {isConnected && currentMode !== 'OFF' && (
+          <div className="text-center">
+            <p className="text-xs text-slate-500">
+              🎨 RGB LED is currently in <span className="font-medium">{currentMode}</span> mode
             </p>
           </div>
-        </div>
+        )}
 
-        {/* Mode Selection Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {rgbModes.map((mode, index) => (
-            <motion.div
-              key={mode.value}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Button
-                variant={currentMode.toLowerCase() === mode.value ? "gradient" : "outline"}
-                size="sm"
-                onClick={() => onModeChange(mode.value)}
-                disabled={isLoading}
-                className="w-full h-auto p-3 flex flex-col items-center space-y-2 group hover:scale-105 transition-all"
-              >
-                <motion.div
-                  className={`w-6 h-6 rounded-full ${mode.color} shadow-md`}
-                  whileHover={{ scale: 1.2 }}
-                  animate={mode.value === 'rainbow' ? {
-                    rotate: 360
-                  } : {}}
-                  transition={mode.value === 'rainbow' ? {
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "linear"
-                  } : {}}
-                />
-                <span className="text-xs font-medium">{mode.label}</span>
-              </Button>
-            </motion.div>
-          ))}
+        {/* Connection Status */}
+        <div className="pt-2 border-t border-slate-200">
+          <div className="flex items-center justify-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              isConnected ? 'bg-green-500' : 'bg-red-500'
+            } animate-pulse`} />
+            <span className="text-xs text-slate-500">
+              {isConnected ? 'RGB Controller Online' : 'RGB Controller Offline'}
+            </span>
+          </div>
         </div>
-
-        {/* Status Indicator */}
-        <motion.div 
-          className="flex items-center justify-center space-x-2 text-sm text-slate-500"
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          <Circle className={`h-3 w-3 fill-current ${
-            isLoading ? 'text-yellow-500' : 'text-green-500'
-          }`} />
-          <span>{isLoading ? 'Updating...' : 'Ready'}</span>
-        </motion.div>
       </CardContent>
     </Card>
   );
