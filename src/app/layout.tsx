@@ -1,31 +1,44 @@
-// src/app/layout.tsx
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
+import type React from "react"
+import type { Metadata } from "next"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'Smart Home D3IF Dashboard',
-  description: 'ESP32 Smart Home Control Dashboard with real-time monitoring',
-  keywords: 'ESP32, Smart Home, IoT, Dashboard, Next.js, React',
-  authors: [{ name: 'Smart Home Team' }],
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#3B82F6',
-};
+  title: "Smart Home Dashboard",
+  description: "ESP32 Smart Home Control System with RGB Lighting and IoT Sensors",
+  generator: "Next.js",
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    other: [
+      { url: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+  },
+}
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+}: Readonly<{
+  children: React.ReactNode
+}>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased min-h-screen bg-gradient-to-br from-slate-50 to-slate-100`}>
-        <div className="relative min-h-screen">
-          {children}
-        </div>
-      </body>
+      <head>
+        <style>{`
+html {
+  font-family: ${GeistSans.style.fontFamily};
+  --font-sans: ${GeistSans.variable};
+  --font-mono: ${GeistMono.variable};
+}
+        `}</style>
+      </head>
+      <body>{children}</body>
     </html>
-  );
+  )
 }
