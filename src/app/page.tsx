@@ -772,7 +772,7 @@ export default function HomePage() {
                 <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
                   ESP32 Smart Home Dashboard
                 </h3>
-                <p className="text-slate-600 font-medium">Monitor, Control, and Customize Your Space</p>
+                <p className="text-slate-600 font-medium">Rumah Pintar, Kendali di Tangan — Smart Control for Your Home</p>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
