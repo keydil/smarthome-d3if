@@ -760,6 +760,7 @@ export default function HomePage() {
                 currentMode={systemStatus.rgb.mode}
                 onModeChange={handleRGBModeChange}
                 isLoading={isLoading.rgb}
+                isConnected={connectionInfo.isOnline}
               />
             </div>
           </motion.section>
