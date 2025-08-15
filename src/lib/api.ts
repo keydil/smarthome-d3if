@@ -368,7 +368,7 @@ export class SmartHomeAPI {
         timestamp: Date.now()
       });
       
-      console.log(`🔥 RGB command sent: ${mode}`);
+      // console.log(`🔥 RGB command sent: ${mode}`);
       return {
         success: true,
         message: `RGB mode: ${mode}`

@@ -79,6 +79,14 @@ export default function HomePage() {
     },
   });
 
+//   const debounce = (func: Function, delay: number) => {
+//   let timeoutId: NodeJS.Timeout;
+//   return (...args: any[]) => {
+//     clearTimeout(timeoutId);
+//     timeoutId = setTimeout(() => func.apply(null, args), delay);
+//   };
+// };
+
   const [isMounted, setIsMounted] = useState(false);
 
   // Simplified connectionInfo - derived from sensorData and systemStatus
@@ -283,24 +291,34 @@ export default function HomePage() {
     }
   };
 
-  const handleRGBModeChange = async (mode: string) => {
-    setIsLoading((prev) => ({ ...prev, rgb: true }));
-    try {
-      const result = await SmartHomeAPI.controlRGB(mode);
-
-      if (result.success) {
-        addControlMessage(result.message);
-        await fetchData(); // Refresh data
-      } else {
-        addControlMessage(result.message, true);
-      }
-    } catch (err) {
-      console.error("RGB control failed:", err);
-      addControlMessage("RGB control failed", true);
-    } finally {
-      setIsLoading((prev) => ({ ...prev, rgb: false }));
+const handleRGBModeChange = async (mode: string) => {
+  // 🚀 UPDATE UI DULU - INI KUNCINYA!
+  setSystemStatus(prev => ({
+    ...prev,
+    rgb: { ...prev.rgb, mode }
+  }));
+  
+  setIsLoading((prev) => ({ ...prev, rgb: true }));
+  
+  try {
+    const result = await SmartHomeAPI.controlRGB(mode);
+    
+    if (result.success) {
+      addControlMessage(result.message);
+      // ✅ Skip fetchData() - UI sudah diupdate
+    } else {
+      // Rollback jika gagal
+      addControlMessage(result.message, true);
+      await fetchData(); // refresh untuk dapat state asli
     }
-  };
+  } catch (err) {
+    console.error("RGB control failed:", err);
+    addControlMessage("RGB control failed", true);
+    await fetchData(); // rollback
+  } finally {
+    setIsLoading((prev) => ({ ...prev, rgb: false }));
+  }
+};
 
   // Effects
   useEffect(() => {
@@ -309,7 +327,7 @@ export default function HomePage() {
 
     const interval = setInterval(() => {
       if (connectionInfo.isOnline) {
-        fetchData();
+        // fetchData();
       } else {
         checkDetailedConnection();
       }
