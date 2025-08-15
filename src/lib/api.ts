@@ -8,9 +8,9 @@ const WEATHER_API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY || 'your_api_key
 const WEATHER_API_BASE = 'https://api.openweathermap.org/data/2.5';
 
 const DEFAULT_LOCATION = {
-  lat: parseFloat(process.env.NEXT_PUBLIC_LOCATION_LAT || '-6.2088'),
-  lon: parseFloat(process.env.NEXT_PUBLIC_LOCATION_LON || '106.8456'),
-  city: process.env.NEXT_PUBLIC_LOCATION_CITY || 'Jakarta'
+  lat: parseFloat(process.env.NEXT_PUBLIC_LOCATION_LAT || '-6.9175'),
+  lon: parseFloat(process.env.NEXT_PUBLIC_LOCATION_LON || '107.6191'),
+  city: process.env.NEXT_PUBLIC_LOCATION_CITY || 'Bandung'
 };
 
 const weatherApi = axios.create({
@@ -64,7 +64,7 @@ export class SmartHomeAPI {
     } catch (error) {
       console.error('Weather API error:', error);
       return { 
-        temperature: 28.5, // Default Indonesia temp
+        temperature: 21.5, // Default Indonesia temp
         humidity: 65.0 
       };
     }

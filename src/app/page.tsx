@@ -38,7 +38,6 @@ import type {
 } from "@/types";
 
 export default function HomePage() {
-  // Updated state types to match the new API responses
   const [sensorData, setSensorData] = useState<SensorDataWithConnection>({
     temperature: 0,
     humidity: 0,
