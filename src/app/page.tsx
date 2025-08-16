@@ -326,7 +326,7 @@ const handleRGBModeChange = async (mode: string) => {
 
     const interval = setInterval(() => {
       if (connectionInfo.isOnline) {
-        // fetchData();
+        fetchData();
       } else {
         checkDetailedConnection();
       }
